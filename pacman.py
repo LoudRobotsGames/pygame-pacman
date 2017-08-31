@@ -24,6 +24,7 @@ SCRIPT_PATH=sys.path[0]
 NO_GIF_TILES=[23]
 
 FRAME_TIME = 60
+DEBUGDRAW_CELLS = 1
 
 NO_WX=1 # if set, the high-score code will not attempt to ask the user his name
 USER_NAME=os.getlogin() # the default user name if wx fails to load or NO_WX
@@ -580,10 +581,10 @@ class ghost ():
         if thisGame.mode == 3:
             return False
 
-
-        cellx = (self.nearestCol * 16) - thisGame.screenPixelPos[0]
-        celly = (self.nearestRow * 16) - thisGame.screenPixelPos[1]
-        pygame.draw.rect(screen, ghostcolor[self.id], (cellx, celly, 16, 16), 1)
+        if DEBUGDRAW_CELLS:
+            cellx = (self.nearestCol * 16) - thisGame.screenPixelPos[0]
+            celly = (self.nearestRow * 16) - thisGame.screenPixelPos[1]
+            pygame.draw.rect(screen, ghostcolor[self.id], (cellx, celly, 16, 16), 1)
 
         if self.state == GHOSTSTATE_NORMAL:
             # draw regular ghost (this one)
@@ -796,6 +797,12 @@ class fruit ():
                 elif self.currentPath[0] == "D":
                     (self.velX, self.velY) = (0, self.speed)
 
+def getCell(v):
+    return int((v + 8) / 16)
+
+def sign(v):
+    return 1 if v > 0 else (-1 if v < 0 else 0)
+
 class pacman ():
 
     def __init__ (self):
@@ -807,6 +814,8 @@ class pacman ():
 
         self.nearestRow = 0
         self.nearestCol = 0
+        self.nextRow = 0
+        self.nextCol = 0
 
         self.homeX = 0
         self.homeY = 0
@@ -829,11 +838,14 @@ class pacman ():
 
     def Move (self):
 
-        self.nearestRow = int(((self.y + 8) / 16))
-        self.nearestCol = int(((self.x + 8) / 16))
+        self.nearestRow = getCell(self.y)
+        self.nearestCol = getCell(self.x)
+
+        self.nextRow = getCell(self.y + (sign(self.velY ) * 8))
+        self.nextCol = getCell(self.x + (sign(self.velX ) * 8))
 
         # make sure the current velocity will not cause a collision before moving
-        if not thisLevel.CheckIfHitWall((self.x + self.velX, self.y + self.velY), (self.nearestRow, self.nearestCol)):
+        if not thisLevel.IsWall((self.nextRow, self.nextCol)):
             # it's ok to Move
             self.x += self.velX
             self.y += self.velY
@@ -926,9 +938,16 @@ class pacman ():
 
         screenx = self.x - thisGame.screenPixelPos[0]
         screeny = self.y - thisGame.screenPixelPos[1]
-        cellx = (self.nearestCol * 16) - thisGame.screenPixelPos[0]
-        celly = (self.nearestRow * 16) - thisGame.screenPixelPos[1]
-        pygame.draw.rect(screen, (255, 255, 0, 65), (cellx, celly, 16, 16), 1)
+
+        if DEBUGDRAW_CELLS:
+            cellx = (self.nearestCol * 16) - thisGame.screenPixelPos[0]
+            celly = (self.nearestRow * 16) - thisGame.screenPixelPos[1]
+            pygame.draw.rect(screen, (255, 255, 0, 65), (cellx, celly, 16, 16), 1)
+            cellx = (self.nextCol * 16) - thisGame.screenPixelPos[0]
+            celly = (self.nextRow * 16) - thisGame.screenPixelPos[1]
+            pygame.draw.rect(screen, (255, 255, 128, 65), (cellx, celly, 16, 16), 1)
+
+
         # set the current frame array to match the direction pacman is facing
         if self.velX > 0:
             self.anim_pacmanCurrent = self.anim_pacmanR
