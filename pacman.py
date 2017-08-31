@@ -23,6 +23,8 @@ SCRIPT_PATH=sys.path[0]
 # currently only "23" for the high-score list
 NO_GIF_TILES=[23]
 
+FRAME_TIME = 60
+
 NO_WX=1 # if set, the high-score code will not attempt to ask the user his name
 USER_NAME=os.getlogin() # the default user name if wx fails to load or NO_WX
 
@@ -579,6 +581,10 @@ class ghost ():
             return False
 
 
+        cellx = (self.nearestCol * 16) - thisGame.screenPixelPos[0]
+        celly = (self.nearestRow * 16) - thisGame.screenPixelPos[1]
+        pygame.draw.rect(screen, ghostcolor[self.id], (cellx, celly, 16, 16), 1)
+
         if self.state == GHOSTSTATE_NORMAL:
             # draw regular ghost (this one)
             img = self.anim[self.getDirection()][ self.animFrame ]
@@ -837,7 +843,8 @@ class pacman ():
 
             # check for collisions with the ghosts
             for i in range(0, 4, 1):
-                if thisLevel.CheckIfHit( (self.x, self.y), (ghosts[i].x, ghosts[i].y), 8):
+                #if thisLevel.CheckIfHit( (self.x, self.y), (ghosts[i].x, ghosts[i].y), 8):
+                if thisLevel.CheckIfInSameCell((self.nearestCol, self.nearestRow), (ghosts[i].nearestCol, ghosts[i].nearestRow)):
                     # hit a ghost
 
                     if ghosts[i].state == GHOSTSTATE_NORMAL:
@@ -917,6 +924,11 @@ class pacman ():
         if thisGame.mode == 3:
             return False
 
+        screenx = self.x - thisGame.screenPixelPos[0]
+        screeny = self.y - thisGame.screenPixelPos[1]
+        cellx = (self.nearestCol * 16) - thisGame.screenPixelPos[0]
+        celly = (self.nearestRow * 16) - thisGame.screenPixelPos[1]
+        pygame.draw.rect(screen, (255, 255, 0, 65), (cellx, celly, 16, 16), 1)
         # set the current frame array to match the direction pacman is facing
         if self.velX > 0:
             self.anim_pacmanCurrent = self.anim_pacmanR
@@ -927,14 +939,14 @@ class pacman ():
         elif self.velY < 0:
             self.anim_pacmanCurrent = self.anim_pacmanU
 
-        screen.blit (self.anim_pacmanCurrent[ self.animFrame ], (self.x - thisGame.screenPixelPos[0], self.y - thisGame.screenPixelPos[1]))
+        screen.blit (self.anim_pacmanCurrent[ self.animFrame ], (screenx, screeny))
 
         if thisGame.mode == 1:
             if not self.velX == 0 or not self.velY == 0:
                 # only Move mouth when pacman is moving
                 self.animDelay += 1
 
-                if self.animDelay == 8:
+                if self.animDelay == 5:
                     self.animFrame = (self.animFrame + 1) % 3
                     self.animDelay = 0
 
@@ -1004,6 +1016,13 @@ class level ():
             return False
 
 
+    def CheckIfInSameCell(self, ar_ac, br_bc):
+        (alpha_row, alpha_col) = ar_ac
+        (beta_row, beta_col) = br_bc
+        if alpha_row == beta_row and alpha_col == beta_col:
+            return True
+        return False
+
     def CheckIfHit (self, px_py, x_y, cushion):
         (x, y) = x_y
         (playerX, playerY) = px_py
@@ -1018,68 +1037,55 @@ class level ():
         (row, col) = row_col
         (playerX, playerY) = px_py
 
-        for iRow in range(row - 1, row + 2, 1):
-            for iCol in range(col - 1, col + 2, 1):
+        result = self.GetMapTile((row, col))
+        if result == tileID['pellet']:
+            self.SetMapTile((row, col),0)
+            snd_pellet[player.pelletSndNum].play()
+            player.pelletSndNum = 1 - player.pelletSndNum
+            self.pellets -= 1
+            thisGame.AddToScore(10)
+            if self.pellets == 0:
+                thisGame.SetMode(6)
 
-                if  (playerX - (iCol * 16) < 16) and (playerX - (iCol * 16) > -16) and (playerY - (iRow * 16) < 16) and (playerY - (iRow * 16) > -16):
-                    # check the offending tile ID
-                    result = thisLevel.GetMapTile((iRow, iCol))
+        elif result == tileID[ 'pellet-power' ]:
+            # got a power pellet
+            thisLevel.SetMapTile((row, col), 0)
+            snd_powerpellet.play()
 
-                    if result == tileID[ 'pellet' ]:
-                        # got a pellet
-                        thisLevel.SetMapTile((iRow, iCol), 0)
-                        snd_pellet[player.pelletSndNum].play()
-                        player.pelletSndNum = 1 - player.pelletSndNum
+            thisGame.AddToScore(100)
+            thisGame.ghostValue = 200
 
-                        thisLevel.pellets -= 1
+            thisGame.ghostTimer = 360
+            for i in range(0, 4, 1):
+                if ghosts[i].state == 1:
+                    ghosts[i].state = 2
 
-                        thisGame.AddToScore(10)
+        elif result == tileID[ 'door-h' ]:
+            # ran into a horizontal door
+            for i in range(0, thisLevel.lvlWidth, 1):
+                if not i == col:
+                    if thisLevel.GetMapTile((row, i)) == tileID[ 'door-h' ]:
+                        player.x = i * 16
 
-                        if thisLevel.pellets == 0:
-                            # no more pellets left!
-                            # WON THE LEVEL
-                            thisGame.SetMode( 6 )
+                        if player.velX > 0:
+                            player.x += 16
+                        else:
+                            player.x -= 16
 
+        elif result == tileID[ 'door-v' ]:
+            # ran into a vertical door
+            for i in range(0, thisLevel.lvlHeight, 1):
+                if not i == row:
+                    if thisLevel.GetMapTile((i, col)) == tileID[ 'door-v' ]:
+                        player.y = i * 16
 
-                    elif result == tileID[ 'pellet-power' ]:
-                        # got a power pellet
-                        thisLevel.SetMapTile((iRow, iCol), 0)
-                        snd_powerpellet.play()
-
-                        thisGame.AddToScore(100)
-                        thisGame.ghostValue = 200
-
-                        thisGame.ghostTimer = 360
-                        for i in range(0, 4, 1):
-                            if ghosts[i].state == 1:
-                                ghosts[i].state = 2
-
-                    elif result == tileID[ 'door-h' ]:
-                        # ran into a horizontal door
-                        for i in range(0, thisLevel.lvlWidth, 1):
-                            if not i == iCol:
-                                if thisLevel.GetMapTile((iRow, i)) == tileID[ 'door-h' ]:
-                                    player.x = i * 16
-
-                                    if player.velX > 0:
-                                        player.x += 16
-                                    else:
-                                        player.x -= 16
-
-                    elif result == tileID[ 'door-v' ]:
-                        # ran into a vertical door
-                        for i in range(0, thisLevel.lvlHeight, 1):
-                            if not i == iRow:
-                                if thisLevel.GetMapTile((i, iCol)) == tileID[ 'door-v' ]:
-                                    player.y = i * 16
-
-                                    if player.velY > 0:
-                                        player.y += 16
-                                    else:
-                                        player.y -= 16
+                        if player.velY > 0:
+                            player.y += 16
+                        else:
+                            player.y -= 16
+        return
 
     def GetGhostBoxPos (self):
-
         for row in range(0, self.lvlHeight, 1):
             for col in range(0, self.lvlWidth, 1):
                 if self.GetMapTile((row, col)) == tileID[ 'ghost-door' ]:
@@ -1596,4 +1602,4 @@ while True:
     pygame.transform.scale(screen, windowSize, window)
     pygame.display.flip()
 
-    clock.tick (60)
+    clock.tick (FRAME_TIME)
