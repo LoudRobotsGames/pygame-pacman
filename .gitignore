@@ -1,5 +1,6 @@
 #intellij
-.idea/
+*.idea/
+.idea/workspace.xml
 *.iml
 
 # Byte-compiled / optimized / DLL files

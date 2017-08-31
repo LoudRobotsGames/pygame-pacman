@@ -23,7 +23,7 @@ SCRIPT_PATH=sys.path[0]
 # currently only "23" for the high-score list
 NO_GIF_TILES=[23]
 
-FRAME_TIME = 60
+FRAME_TIME = 20
 DEBUGDRAW_CELLS = 1
 
 NO_WX=1 # if set, the high-score code will not attempt to ask the user his name
@@ -154,6 +154,7 @@ class game ():
         # 5 = wait after eating ghost
         # 6 = wait after finishing level
         self.mode = 0
+        self.lastDirectionPressed = 'none'
         self.modeTimer = 0
         self.ghostTimer = 0
         self.ghostValue = 0
@@ -797,8 +798,8 @@ class fruit ():
                 elif self.currentPath[0] == "D":
                     (self.velX, self.velY) = (0, self.speed)
 
-def getCell(v):
-    return int((v + 8) / 16)
+def getCell(v, spacing = 8):
+    return int((v + spacing) / 16)
 
 def sign(v):
     return 1 if v > 0 else (-1 if v < 0 else 0)
@@ -841,15 +842,28 @@ class pacman ():
         self.nearestRow = getCell(self.y)
         self.nearestCol = getCell(self.x)
 
-        self.nextRow = getCell(self.y + (sign(self.velY ) * 8))
-        self.nextCol = getCell(self.x + (sign(self.velX ) * 8))
-
         # make sure the current velocity will not cause a collision before moving
-        if not thisLevel.IsWall((self.nextRow, self.nextCol)):
-            # it's ok to Move
-            self.x += self.velX
-            self.y += self.velY
+        nextRow = getCell(self.y + (sign(self.velY ) * 16))
+        nextCol = getCell(self.x + (sign(self.velX ) * 16))
 
+        moved = False
+        if not thisLevel.IsWall((self.nearestRow, nextCol)):
+            self.x += self.velX
+            self.nextCol = nextCol
+            moved = True
+        else:
+            self.velX = 0
+            self.x = self.nearestCol * 16
+
+        if not thisLevel.IsWall((nextRow, self.nearestCol)):
+            self.y += self.velY
+            self.nextRow = nextRow
+            moved = True
+        else:
+            self.velY = 0
+            self.y = self.nearestRow * 16
+
+        if moved:
             # check for collisions with other tiles (pellets, etc)
             thisLevel.CheckIfHitSomething((self.x, self.y), (self.nearestRow, self.nearestCol))
 
@@ -890,11 +904,6 @@ class pacman ():
                     thisGame.fruitTimer = 0
                     thisGame.fruitScoreTimer = 120
                     snd_eatfruit.play()
-
-        else:
-            # we're going to hit a wall -- stop moving
-            self.velX = 0
-            self.velY = 0
 
         # deal with power-pellet ghost timer
         if thisGame.ghostTimer > 0:
@@ -1374,26 +1383,32 @@ def CheckIfCloseButton(events):
 
 
 def CheckInputs():
+    row = getCell(player.y, 12)
+    col = getCell(player.x, 12)
 
     if thisGame.mode == 1:
         if pygame.key.get_pressed()[ pygame.K_RIGHT ] or (js!=None and js.get_axis(JS_XAXIS)>0):
-            if not thisLevel.CheckIfHitWall((player.x + player.speed, player.y), (player.nearestRow, player.nearestCol)):
+            #if not thisLevel.CheckIfHitWall((player.x + player.speed, player.y), (player.nearestRow, player.nearestCol)):
+            if not thisLevel.IsWall((row, col + 1)):
                 player.velX = player.speed
-                player.velY = 0
+                if player.velY
 
         elif pygame.key.get_pressed()[ pygame.K_LEFT ] or (js!=None and js.get_axis(JS_XAXIS)<0):
-            if not thisLevel.CheckIfHitWall((player.x - player.speed, player.y), (player.nearestRow, player.nearestCol)):
+            #if not thisLevel.CheckIfHitWall((player.x - player.speed, player.y), (player.nearestRow, player.nearestCol)):
+            if not thisLevel.IsWall((player.nearestRow, player.nearestCol - 1)):
                 player.velX = -player.speed
-                player.velY = 0
+                #player.velY = 0
 
         elif pygame.key.get_pressed()[ pygame.K_DOWN ] or (js!=None and js.get_axis(JS_YAXIS)>0):
-            if not thisLevel.CheckIfHitWall((player.x, player.y + player.speed), (player.nearestRow, player.nearestCol)):
-                player.velX = 0
+            #if not thisLevel.CheckIfHitWall((player.x, player.y + player.speed), (player.nearestRow, player.nearestCol)):
+            if not thisLevel.IsWall((player.nearestRow + 1, player.nearestCol)):
+                #player.velX = 0
                 player.velY = player.speed
 
         elif pygame.key.get_pressed()[ pygame.K_UP ] or (js!=None and js.get_axis(JS_YAXIS)<0):
-            if not thisLevel.CheckIfHitWall((player.x, player.y - player.speed), (player.nearestRow, player.nearestCol)):
-                player.velX = 0
+            #if not thisLevel.CheckIfHitWall((player.x, player.y - player.speed), (player.nearestRow, player.nearestCol)):
+            if not thisLevel.IsWall((player.nearestRow - 1, player.nearestCol)):
+                #player.velX = 0
                 player.velY = -player.speed
 
     if pygame.key.get_pressed()[ pygame.K_ESCAPE ]:
@@ -1517,9 +1532,9 @@ while True:
 
         thisGame.modeTimer += 1
         player.Move()
-        for i in range(0, 4, 1):
-            ghosts[i].Move()
-        thisFruit.Move()
+        #for i in range(0, 4, 1):
+        #    ghosts[i].Move()
+        #thisFruit.Move()
 
     elif thisGame.mode == 2:
         # waiting after getting hit by a ghost
