@@ -1,0 +1,94 @@
+'    ____                  ____             ____
+'   / __/_ _____  ___ ____/ __/__________  / / /
+'  _\ \/ // / _ \/ -_) __/\ \/ __/ __/ _ \/ / / 
+' /___/\_,_/ .__/\__/_/ /___/\__/_/  \___/_/_/  
+'         /_/                  game engine
+'
+' Cross-reference for tiles and sprites.
+'
+' Syntax for each line is:
+'      [number] [tilename] [tile description]
+' Ex.  5130 wirecornerul upper-left corner of wire path
+'
+' Tile numbers may go from 1-32767. (Tile 0 is empty space.)
+' Tiles 9000-9999 are invisible during gameplay.
+'
+' Commands:
+'      # tiles              < tile declarations start here
+'      # sprites            < sprite descriptions start here
+' __________________________________________________________
+
+# extension .png
+
+2 pellet a normal pellet
+3 pellet-power a power pellet to make pac-man invincible
+4 start start point for pacman
+
+# tiles
+' 1 ghost-door wall of the ghost box
+' 4 start the starting position for pac-man
+' 
+' 10 ghost-blinky blinky
+' 11 ghost-pinky pinky
+' 12 ghost-inky inky
+' 13 ghost-sue sue
+' 
+20 door-h horizontal door (flip to other side of maze)
+21 door-v vertical door (flip to other side of maze)
+' 22 showlogo causes the logo to be drawn
+' 23 hiscores generate and draw a hi-score list
+' 
+100 wall-straight-hu a horizontal upper wall
+101 wall-straight-hl a horizontal lower wall
+102 wall-straight-vl a vertical left wall
+103 wall-straight-vr a vertical right wall
+104 wall-vertical-left
+105 wall-vertical-right
+106 wall-horizontal-upper
+107 wall-horizontal-lower
+
+110 wall-corner-ll lower-left corner of a wall
+111 wall-corner-lr lower-right corner of a wall
+112 wall-corner-ul upper-left corner of a wall
+113 wall-corner-ur upper-right corner of a wall
+114 wall-corner-open-tl open corner top left
+115 wall-corner-open-tr open corner top right
+116 wall-corner-inner-ll
+117 wall-corner-inner-lr
+118 wall-corner-inner-ul
+119 wall-corner-inner-ur
+120 wall-corner-outer-ll
+121 wall-corner-outer-lr
+122 wall-corner-outer-ul
+123 wall-corner-outer-ur
+124 wall-corner-sharp-ll
+125 wall-corner-sharp-lr
+126 wall-corner-sharp-ul
+127 wall-corner-sharp-ur
+128 wall-corner-open-ll
+129 wall-corner-open-lr
+130 wall-corner-open-ul
+131 wall-corner-open-ur
+' 
+' 110 wall-end-b bottom end of a wall
+' 111 wall-end-l left end of a wall
+' 112 wall-end-r right end of a wall
+' 113 wall-end-t top end of a wall
+' 
+' 120 wall-nub a one-tile "nub" wall
+' 
+' 130 wall-t-bottom a "T"-shaped wall, bottom-orientation
+' 131 wall-t-left a "T"-shaped wall, left-orientation
+' 132 wall-t-right a "T"-shaped wall, right-orientation
+' 133 wall-t-top a "T"-shaped wall, top-orientation
+' 
+' 140 wall-x a four-way wall
+' 
+' 300 glasses ghost glasses
+' 
+' 500 x-paintwall use this tile to paint walls automatically
+
+
+
+# sprites
+

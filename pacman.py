@@ -61,7 +61,7 @@ snd_extralife = pygame.mixer.Sound(os.path.join(SCRIPT_PATH,"res","sounds","extr
 
 ghostcolor = {}
 ghostcolor[0] = (255, 0, 0, 255)
-ghostcolor[1] = (255, 128, 255, 255)
+ghostcolor[1] = (255, 181, 255, 255)
 ghostcolor[2] = (128, 255, 255, 255)
 ghostcolor[3] = (255, 128, 0, 255)
 ghostcolor[4] = (50, 50, 255, 255) # blue, vulnerable ghost
@@ -1391,7 +1391,6 @@ def CheckInputs():
             #if not thisLevel.CheckIfHitWall((player.x + player.speed, player.y), (player.nearestRow, player.nearestCol)):
             if not thisLevel.IsWall((row, col + 1)):
                 player.velX = player.speed
-                if player.velY
 
         elif pygame.key.get_pressed()[ pygame.K_LEFT ] or (js!=None and js.get_axis(JS_XAXIS)<0):
             #if not thisLevel.CheckIfHitWall((player.x - player.speed, player.y), (player.nearestRow, player.nearestCol)):
