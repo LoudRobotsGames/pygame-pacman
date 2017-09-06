@@ -6,11 +6,11 @@ from pygame.locals import *
 # WIN???
 SCRIPT_PATH=sys.path[0]
 
-FRAME_TIME = 60
+FRAME_TIME = 10
 TILE_SIZE = 8
 HALF_TILE_SIZE = 4
 SCREEN_MULTIPLIER = 2
-DEBUGDRAW = 1
+DEBUGDRAW = 0
 
 NO_GIF_TILES=[20,21,23]
 tileIDName = {} # gives tile name (when the ID# is known)
@@ -28,6 +28,8 @@ window = pygame.display.set_mode((1, 1))
 pygame.display.set_caption("Pacman")
 
 RED    = (255,   0,   0)
+GREEN  = (  0, 255,   0)
+BLUE   = (  0,   0, 255)
 PINK   = (255, 181, 255)
 ORANGE = (248, 187,  85)
 CYAN   = (  0, 255, 255)
@@ -110,6 +112,18 @@ class pacman():
             else:
                 self.targetX = col * TILE_SIZE
 
+        if self.direction == DIR_UP:
+            if levelController.GetColTile(row - 1, col) & TILE_FLAG_LEGAL:
+                self.targetY = (row - 1) * TILE_SIZE
+            else:
+                self.targetY = row * TILE_SIZE
+
+        if self.direction == DIR_DOWN:
+            if levelController.GetColTile(row + 1, col) & TILE_FLAG_LEGAL:
+                self.targetY = (row + 1) * TILE_SIZE
+            else:
+                self.targetY = row * TILE_SIZE
+
     def Update(self):
         row = int((self.y + HALF_TILE_SIZE) / TILE_SIZE)
         col = int((self.x + HALF_TILE_SIZE) / TILE_SIZE)
@@ -120,14 +134,8 @@ class pacman():
         moved = False
         if self.direction == DIR_RIGHT:
             self.anim_current = self.anim_right
-            if self.x < self.targetX:
-                self.x = min(self.x + self.speed, self.targetX)
-                moved = True
         elif self.direction == DIR_LEFT:
             self.anim_current = self.anim_left
-            if self.x > self.targetX:
-                self.x = max(self.x - self.speed, self.targetX)
-                moved = True
         elif self.direction == DIR_UP:
             self.anim_current = self.anim_up
         elif self.direction == DIR_DOWN:
@@ -137,8 +145,24 @@ class pacman():
             self.animDelay = 0
             self.animFrame = 2
 
+        if self.x < self.targetX:
+            self.x = min(self.x + self.speed, self.targetX)
+            moved = True
+        elif self.x > self.targetX:
+            self.x = max(self.x - self.speed, self.targetX)
+            moved = True
+
+        if self.y > self.targetY:
+            self.y = max(self.y - self.speed, self.targetY)
+            moved = True
+        elif self.y < self.targetY:
+            self.y = min(self.y + self.speed, self.targetY)
+            moved = True
+
         if moved:
             self.animDelay += 1
+        else:
+            self.animFrame = 2
 
         if self.animDelay == 4:
             self.animFrame = (self.animFrame + 1) % 3
@@ -155,6 +179,8 @@ class pacman():
             col = self.nearestCol
             debugrect = (col * TILE_SIZE* 2, row * TILE_SIZE * 2, TILE_SIZE * 2, TILE_SIZE * 2)
             pygame.draw.rect(debugLayer, RED, debugrect, 1)
+            pygame.draw.circle(debugLayer, RED, (int(self.targetX * 2), int(self.targetY * 2)), 3, 1)
+            pygame.draw.circle(debugLayer, BLUE, (int(self.x * 2), int(self.y * 2)), 3, 1)
 
 class level():
     def __init__(self):
@@ -388,19 +414,21 @@ def CheckInputs():
     row = player.nearestRow
     col = player.nearestCol
     if pygame.key.get_pressed()[pygame.K_RIGHT]:
-        if (levelController.GetColTile(row, col + 1) & TILE_FLAG_LEGAL) or not player.AtTarget():
+        if (levelController.GetColTile(row, col + 1) & TILE_FLAG_LEGAL):
             player.direction = DIR_RIGHT
             player.UpdateTarget(row, col + 1)
     elif pygame.key.get_pressed()[pygame.K_LEFT]:
-        if (levelController.GetColTile(row, col - 1) & TILE_FLAG_LEGAL) or not player.AtTarget():
+        if (levelController.GetColTile(row, col - 1) & TILE_FLAG_LEGAL):
             player.direction = DIR_LEFT
             player.UpdateTarget(row, col - 1)
     elif pygame.key.get_pressed()[pygame.K_UP]:
-        if levelController.GetColTile(row - 1, col) & TILE_FLAG_LEGAL:
+        if (levelController.GetColTile(row - 1, col) & TILE_FLAG_LEGAL):
             player.direction = DIR_UP
+            player.UpdateTarget(row - 1, col)
     elif pygame.key.get_pressed()[pygame.K_DOWN]:
-        if levelController.GetColTile(row + 1, col) & TILE_FLAG_LEGAL:
+        if (levelController.GetColTile(row + 1, col) & TILE_FLAG_LEGAL):
             player.direction = DIR_DOWN
+            player.UpdateTarget(row + 1, col)
 #      _____________________________________________
 # ___/  function: Get ID-Tilename Cross References  \______________________________________
 

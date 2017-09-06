@@ -69,6 +69,11 @@
 129 wall-corner-open-lr
 130 wall-corner-open-ul
 131 wall-corner-open-ur
+132 wall-end-ll
+133 wall-end-lr
+
+140 wall-ghost-door
+
 ' 
 ' 110 wall-end-b bottom end of a wall
 ' 111 wall-end-l left end of a wall
