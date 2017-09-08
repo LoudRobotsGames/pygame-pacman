@@ -6,11 +6,11 @@ from pygame.locals import *
 # WIN???
 SCRIPT_PATH=sys.path[0]
 
-FRAME_TIME = 10
+FRAME_TIME = 60
 TILE_SIZE = 8
 HALF_TILE_SIZE = 4
-SCREEN_MULTIPLIER = 2
-DEBUGDRAW = 0
+SCREEN_MULTIPLIER = 3
+DEBUGDRAW = 1
 
 NO_GIF_TILES=[20,21,23]
 tileIDName = {} # gives tile name (when the ID# is known)
@@ -97,38 +97,37 @@ class pacman():
     def AtTarget(self):
         return self.x == self.targetX and self.y == self.targetY
 
-    def UpdateTarget(self, row, col):
-        self.nearestCol = col
-        self.nearestRow = row
+    def OnEnterTile(self, row, col):
         if self.direction == DIR_RIGHT:
-            if levelController.GetColTile(row, col + 1) & TILE_FLAG_LEGAL:
-                self.targetX = (col + 1) * TILE_SIZE
-            else:
-                self.targetX = col * TILE_SIZE
+            self.UpdateTarget(row, col + 1)
+        elif self.direction == DIR_LEFT:
+            self.UpdateTarget(row, col - 1)
+        elif self.direction == DIR_UP:
+            self.UpdateTarget(row - 1, col)
+        elif self.direction == DIR_DOWN:
+            self.UpdateTarget(row + 1, col)
 
-        if self.direction == DIR_LEFT:
-            if levelController.GetColTile(row, col - 1) & TILE_FLAG_LEGAL:
+    def UpdateTarget(self, row, col):
+        if levelController.GetColTile(row, col) & TILE_FLAG_LEGAL:
+            self.targetX = col * TILE_SIZE
+            self.targetY = row * TILE_SIZE
+        else:
+            if self.direction == DIR_RIGHT:
                 self.targetX = (col - 1) * TILE_SIZE
-            else:
-                self.targetX = col * TILE_SIZE
-
-        if self.direction == DIR_UP:
-            if levelController.GetColTile(row - 1, col) & TILE_FLAG_LEGAL:
-                self.targetY = (row - 1) * TILE_SIZE
-            else:
-                self.targetY = row * TILE_SIZE
-
-        if self.direction == DIR_DOWN:
-            if levelController.GetColTile(row + 1, col) & TILE_FLAG_LEGAL:
+            elif self.direction == DIR_LEFT:
+                self.targetX = (col + 1) * TILE_SIZE
+            elif self.direction == DIR_UP:
                 self.targetY = (row + 1) * TILE_SIZE
-            else:
-                self.targetY = row * TILE_SIZE
+            elif self.direction == DIR_DOWN:
+                self.targetY = (row - 1) * TILE_SIZE
 
     def Update(self):
         row = int((self.y + HALF_TILE_SIZE) / TILE_SIZE)
         col = int((self.x + HALF_TILE_SIZE) / TILE_SIZE)
         if row != self.nearestRow or col != self.nearestCol:
-            self.UpdateTarget(row, col)
+            self.nearestCol = col
+            self.nearestRow = row
+            self.OnEnterTile(row, col)
 
         #move towards target and select animation
         moved = False
@@ -177,10 +176,10 @@ class pacman():
         if DEBUGDRAW:
             row = self.nearestRow
             col = self.nearestCol
-            debugrect = (col * TILE_SIZE* 2, row * TILE_SIZE * 2, TILE_SIZE * 2, TILE_SIZE * 2)
+            debugrect = (col * TILE_SIZE* SCREEN_MULTIPLIER, row * TILE_SIZE * SCREEN_MULTIPLIER, TILE_SIZE * SCREEN_MULTIPLIER, TILE_SIZE * SCREEN_MULTIPLIER)
             pygame.draw.rect(debugLayer, RED, debugrect, 1)
-            pygame.draw.circle(debugLayer, RED, (int(self.targetX * 2), int(self.targetY * 2)), 3, 1)
-            pygame.draw.circle(debugLayer, BLUE, (int(self.x * 2), int(self.y * 2)), 3, 1)
+            pygame.draw.circle(debugLayer, RED, (int(self.targetX * SCREEN_MULTIPLIER), int(self.targetY * SCREEN_MULTIPLIER)), 3, 1)
+            pygame.draw.circle(debugLayer, BLUE, (int(self.x * SCREEN_MULTIPLIER), int(self.y * SCREEN_MULTIPLIER)), 3, 1)
 
 class level():
     def __init__(self):
@@ -383,7 +382,7 @@ class level():
                         background.blit(tileIDImage[useTile], (col * TILE_SIZE, row * TILE_SIZE))
 
                 if DEBUGDRAW:
-                    debugrect = (col * TILE_SIZE* 2, row * TILE_SIZE * 2, TILE_SIZE * 2, TILE_SIZE * 2)
+                    debugrect = (col * TILE_SIZE* SCREEN_MULTIPLIER, row * TILE_SIZE * SCREEN_MULTIPLIER, TILE_SIZE * SCREEN_MULTIPLIER, TILE_SIZE * SCREEN_MULTIPLIER)
                     pygame.draw.rect(debugLayer, GRID, debugrect, 1)
                     col = self.GetColTile(row, col)
                     if col & TILE_FLAG_LEGAL:
@@ -400,8 +399,11 @@ def CheckIfCloseButton(events):
         if event.type == QUIT:
             sys.exit(0)
 
+debugRow = 0
+debugCol = 0
+
 def CheckInputs():
-    global DEBUGDRAW
+    global DEBUGDRAW, debugRow, debugCol
     if pygame.key.get_pressed()[pygame.K_r]:
         levelController.LoadLevel(levelController.currentLevel)
         levelController.Restart()
@@ -413,21 +415,29 @@ def CheckInputs():
 
     row = player.nearestRow
     col = player.nearestCol
+    debugCol = col
+    debugRow = row
     if pygame.key.get_pressed()[pygame.K_RIGHT]:
         if (levelController.GetColTile(row, col + 1) & TILE_FLAG_LEGAL):
             player.direction = DIR_RIGHT
+            debugCol = col + 1
             player.UpdateTarget(row, col + 1)
     elif pygame.key.get_pressed()[pygame.K_LEFT]:
         if (levelController.GetColTile(row, col - 1) & TILE_FLAG_LEGAL):
             player.direction = DIR_LEFT
+            debugCol = col - 1
             player.UpdateTarget(row, col - 1)
     elif pygame.key.get_pressed()[pygame.K_UP]:
         if (levelController.GetColTile(row - 1, col) & TILE_FLAG_LEGAL):
+            #col = col - 1 if player.direction == DIR_RIGHT else col
+            #col = col + 1 if player.direction == DIR_LEFT else col
             player.direction = DIR_UP
+            debugRow = row - 1
             player.UpdateTarget(row - 1, col)
     elif pygame.key.get_pressed()[pygame.K_DOWN]:
         if (levelController.GetColTile(row + 1, col) & TILE_FLAG_LEGAL):
             player.direction = DIR_DOWN
+            debugRow = row + 1
             player.UpdateTarget(row + 1, col)
 #      _____________________________________________
 # ___/  function: Get ID-Tilename Cross References  \______________________________________
@@ -528,6 +538,9 @@ while True:
     levelController.DrawLevel()
     screen.blit(background, (0,0))
     player.Draw()
+
+    debugrect = (debugCol * TILE_SIZE* SCREEN_MULTIPLIER, debugRow * TILE_SIZE * SCREEN_MULTIPLIER, TILE_SIZE * SCREEN_MULTIPLIER, TILE_SIZE * SCREEN_MULTIPLIER)
+    pygame.draw.rect(debugLayer, GREEN, debugrect, 1)
     pygame.transform.scale(screen, windowSize, window)
     if DEBUGDRAW:
         window.blit(debugLayer, (0,0))
