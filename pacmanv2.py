@@ -159,6 +159,22 @@ class randomAI():
         elif ai.direction == DIR_DOWN:
             self.UpdateTarget(ai, row + 1, col)
 
+    def GoUp(self, ai, row, col):
+        ai.direction = DIR_UP
+        self.UpdateTarget(ai, row - 1, col)
+
+    def GoLeft(self, ai, row, col):
+        ai.direction = DIR_LEFT
+        self.UpdateTarget(ai, row, col - 1)
+
+    def GoDown(self, ai, row, col):
+        ai.direction = DIR_DOWN
+        self.UpdateTarget(ai, row + 1, col)
+
+    def GoRight(self, ai, row, col):
+        ai.direction = DIR_RIGHT
+        self.UpdateTarget(ai, row, col + 1)
+
     def UpdateTarget(self, ai, row, col):
         if levelController.GetColTile(row, col) & TILE_FLAG_LEGAL:
             ai.targetX = col * TILE_SIZE
@@ -179,22 +195,25 @@ class randomAI():
             left = levelController.GetColTile(row, col - 1) & TILE_FLAG_LEGAL
             right = levelController.GetColTile(row, col + 1) & TILE_FLAG_LEGAL
 
+            # pick a random direction. If it is blocked or the reverse of what we are heading. Pick from the list
             newDir = self.dirList[random.randint(0, 3)]
-            if newDir == DIR_UP and up:
-
-
-            if up and ai.direction != DIR_DOWN:
-                ai.direction = DIR_UP
-                self.UpdateTarget(ai, row - 1, col)
-            elif right and ai.direction != DIR_LEFT:
-                ai.direction = DIR_RIGHT
-                self.UpdateTarget(ai, row, col + 1)
-            elif down and ai.direction != DIR_UP:
-                ai.direction = DIR_DOWN
-                self.UpdateTarget(ai, row + 1, col)
-            elif left and ai.direction != DIR_RIGHT:
-                ai.direction = DIR_LEFT
-                self.UpdateTarget(ai, row, col - 1)
+            if newDir == DIR_UP and up and ai.direction != DIR_DOWN:
+                self.GoUp(ai, row, col)
+            elif newDir == DIR_DOWN and down and ai.direction != DIR_UP:
+                self.GoDown(ai, row, col)
+            elif newDir == DIR_LEFT and left and ai.direction != DIR_RIGHT:
+                self.GoLeft(ai, row, col)
+            elif newDir == DIR_RIGHT and right and ai.direction != DIR_LEFT:
+                self.GoRight(ai, row, col)
+            else:
+                if up and ai.direction != DIR_DOWN:
+                    self.GoUp(ai, row, col)
+                elif right and ai.direction != DIR_LEFT:
+                    self.GoRight(ai, row, col)
+                elif down and ai.direction != DIR_UP:
+                    self.GoDown(ai, row, col)
+                elif left and ai.direction != DIR_RIGHT:
+                    self.GoLeft(ai, row, col)
 
 class ghost():
     def __init__(self, color, ai):
