@@ -37,7 +37,11 @@
 21 door-v vertical door (flip to other side of maze)
 ' 22 showlogo causes the logo to be drawn
 ' 23 hiscores generate and draw a hi-score list
-' 
+'
+31 char_1
+32 char_2
+33 char_3
+
 100 wall-straight-hu a horizontal upper wall
 101 wall-straight-hl a horizontal lower wall
 102 wall-straight-vl a vertical left wall

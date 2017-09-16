@@ -5,7 +5,7 @@ from pygame.locals import *
 SCRIPT_PATH=sys.path[0]
 
 # Constants
-FRAME_TIME = 15
+FRAME_TIME = 60
 SPRITE_SIZE = 16
 TILE_SIZE = 8
 HALF_TILE_SIZE = 4
@@ -145,8 +145,59 @@ class bonus():
             pygame.draw.circle(debugLayer, GREEN, (self.left * SCREEN_MULTIPLIER, self.bottom * SCREEN_MULTIPLIER), 2)
             pygame.draw.circle(debugLayer, GREEN, (self.right * SCREEN_MULTIPLIER, self.bottom * SCREEN_MULTIPLIER), 2)
 
+class randomAI():
+
+    dirList = [DIR_UP, DIR_LEFT, DIR_DOWN, DIR_RIGHT]
+
+    def Think(self, ai, row, col):
+        if ai.direction == DIR_RIGHT:
+            self.UpdateTarget(ai, row, col + 1)
+        elif ai.direction == DIR_LEFT:
+            self.UpdateTarget(ai, row, col - 1)
+        elif ai.direction == DIR_UP:
+            self.UpdateTarget(ai, row - 1, col)
+        elif ai.direction == DIR_DOWN:
+            self.UpdateTarget(ai, row + 1, col)
+
+    def UpdateTarget(self, ai, row, col):
+        if levelController.GetColTile(row, col) & TILE_FLAG_LEGAL:
+            ai.targetX = col * TILE_SIZE
+            ai.targetY = row * TILE_SIZE
+        else:
+            # Back off from the new spot
+            if ai.direction == DIR_RIGHT:
+                col -= 1
+            elif ai.direction == DIR_LEFT:
+                col += 1
+            elif ai.direction == DIR_UP:
+                row += 1
+            elif ai.direction == DIR_DOWN:
+                row -= 1
+            # Check for legal direction to go
+            up = levelController.GetColTile(row - 1, col) & TILE_FLAG_LEGAL
+            down = levelController.GetColTile(row + 1, col) & TILE_FLAG_LEGAL
+            left = levelController.GetColTile(row, col - 1) & TILE_FLAG_LEGAL
+            right = levelController.GetColTile(row, col + 1) & TILE_FLAG_LEGAL
+
+            newDir = self.dirList[random.randint(0, 3)]
+            if newDir == DIR_UP and up:
+
+
+            if up and ai.direction != DIR_DOWN:
+                ai.direction = DIR_UP
+                self.UpdateTarget(ai, row - 1, col)
+            elif right and ai.direction != DIR_LEFT:
+                ai.direction = DIR_RIGHT
+                self.UpdateTarget(ai, row, col + 1)
+            elif down and ai.direction != DIR_UP:
+                ai.direction = DIR_DOWN
+                self.UpdateTarget(ai, row + 1, col)
+            elif left and ai.direction != DIR_RIGHT:
+                ai.direction = DIR_LEFT
+                self.UpdateTarget(ai, row, col - 1)
+
 class ghost():
-    def __init__(self, color):
+    def __init__(self, color, ai):
         self.x = 0
         self.y = 0
         self.color = color
@@ -157,6 +208,12 @@ class ghost():
         self.anim_down = {}
         self.anim_current = None
         self.animFrame = 1
+        self.animDelay = 0
+        self.direction = DIR_RIGHT
+        self.nearestCol = 0
+        self.nearestRow = 0
+        self.speed = 0.5
+        self.brain = ai
 
         for i in range(1, 3, 1):
             self.anim_left[i-1] = self.loadAnimFrame(DIR_LEFT, i)
@@ -180,6 +237,64 @@ class ghost():
 
     def Draw(self):
         screen.blit(self.anim_current[self.animFrame], self.ScreenPos())
+
+    def SnapToPosition(self, x, y):
+        self.x = x
+        self.y = y
+        self.targetX = x
+        self.targetY = y
+
+    def AtTarget(self):
+        return self.x == self.targetX and self.y == self.targetY
+
+    def OnEnterTile(self, row, col):
+        self.brain.Think(self, row, col)
+
+    def Update(self):
+        row = int((self.y + HALF_TILE_SIZE) / TILE_SIZE)
+        col = int((self.x + HALF_TILE_SIZE) / TILE_SIZE)
+        if row != self.nearestRow or col != self.nearestCol:
+            self.nearestCol = col
+            self.nearestRow = row
+            self.OnEnterTile(row, col)
+
+        #move towards target and select animation
+        moved = False
+        if self.direction == DIR_RIGHT:
+            self.anim_current = self.anim_right
+        elif self.direction == DIR_LEFT:
+            self.anim_current = self.anim_left
+        elif self.direction == DIR_UP:
+            self.anim_current = self.anim_up
+        elif self.direction == DIR_DOWN:
+            self.anim_current = self.anim_down
+        else:
+            self.anim_current = self.anim_right
+            self.animDelay = 0
+            self.animFrame = 1
+
+        if self.x < self.targetX:
+            self.x = min(self.x + self.speed, self.targetX)
+            moved = True
+        elif self.x > self.targetX:
+            self.x = max(self.x - self.speed, self.targetX)
+            moved = True
+
+        if self.y > self.targetY:
+            self.y = max(self.y - self.speed, self.targetY)
+            moved = True
+        elif self.y < self.targetY:
+            self.y = min(self.y + self.speed, self.targetY)
+            moved = True
+
+        if moved:
+            self.animDelay += 1
+        else:
+            self.animFrame = 1
+
+        if self.animDelay == 4:
+            self.animFrame = (self.animFrame + 1) % 2
+            self.animDelay = 0
 
 class pacman():
     def __init__(self):
@@ -554,7 +669,7 @@ debugRow = 0
 debugCol = 0
 
 def CheckInputs():
-    global DEBUGDRAW, debugRow, debugCol, button_pressed
+    global DEBUGDRAW, debugRow, debugCol, button_pressed, paused
     if pygame.key.get_pressed()[pygame.K_r]:
         levelController.LoadLevel(levelController.currentLevel)
         levelController.Restart()
@@ -564,6 +679,8 @@ def CheckInputs():
             DEBUGDRAW = 0
         else:
             DEBUGDRAW = 1
+    if pygame.key.get_pressed()[pygame.K_p]:
+        paused = not paused
 
     row = player.nearestRow
     col = player.nearestCol
@@ -689,9 +806,8 @@ background  = pygame.Surface(screenSize)
 debugLayer = pygame.Surface(windowSize, pygame.SRCALPHA, 32)
 
 player = pacman()
-pinky = ghost(PINK)
-pinky.x = 1 * TILE_SIZE
-pinky.y = 4 * TILE_SIZE
+pinky = ghost(PINK, randomAI())
+pinky.SnapToPosition(1 * TILE_SIZE, 4 * TILE_SIZE)
 
 fruit = bonus()
 
@@ -701,12 +817,14 @@ levelController.Restart()
 
 # todo - move this into Game class when written
 lives = 3
-
+paused = False
 while True:
     CheckIfCloseButton( pygame.event.get() )
     CheckInputs()
 
-    player.Update()
+    if not paused:
+        player.Update()
+        pinky.Update()
     # ghost update
 
     # check collisions
