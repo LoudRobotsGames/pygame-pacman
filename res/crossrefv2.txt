@@ -20,6 +20,10 @@
 
 # extension .png
 
+# beginFonts
+a char_a
+# endFonts
+
 2 pellet a normal pellet
 3 pellet-power a power pellet to make pac-man invincible
 4 start start point for pacman

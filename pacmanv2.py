@@ -21,6 +21,8 @@ NO_GIF_TILES = [20, 21, 23]
 tileIDName = {} # gives tile name (when the ID# is known)
 tileID = {} # gives tile ID (when the name is known)
 tileIDImage = {} # gives tile image (when the ID# is known)
+fontID = {} #
+fontIDImage = {} #
 
 # Initializing the sound mixer. Must come before pygame.init()
 pygame.mixer.pre_init(22050,16,2,512)
@@ -661,6 +663,8 @@ class level():
                     useTile = self.GetMapTile(row, col)
                     if not useTile == 0 and not useTile == tileID['door-h'] and not useTile == tileID['door-v']:
                         background.blit(tileIDImage[useTile], (col * TILE_SIZE, row * TILE_SIZE))
+                    if row == 0 and col == 0:
+                        background.blit(fontIDImage['a'], (col * TILE_SIZE, row * TILE_SIZE))
 
                 if DEBUGDRAW:
                     debugrect = (col * TILE_SIZE* SCREEN_MULTIPLIER, row * TILE_SIZE * SCREEN_MULTIPLIER, TILE_SIZE * SCREEN_MULTIPLIER, TILE_SIZE * SCREEN_MULTIPLIER)
@@ -743,6 +747,7 @@ def GetCrossRef ():
 
     lineNum = 0
     useLine = False
+    readFonts = False
 
     for i in f.readlines():
         # print " ========= Line " + str(lineNum) + " ============ "
@@ -761,11 +766,24 @@ def GetCrossRef ():
             firstWord = str_splitBySpace[1]
             if firstWord == "extension":
                 EXT = str_splitBySpace[2]
+            elif firstWord == "beginFonts":
+                readFonts = True
+            elif firstWord == "endFonts":
+                readFonts = False
         else:
             # print str(wordNum) + ". " + j
             useLine = True
 
         if useLine == True:
+            if readFonts:
+                fID = str_splitBySpace[0]
+                fontIDImage[fID] = pygame.image.load(os.path.join(SCRIPT_PATH,"res","tiles",str_splitBySpace[1] + EXT))
+                flags = fontIDImage[fID].get_flags()
+                palette = fontIDImage[fID].get_palette()
+                fontIDImage[fID].set_palette_at(1, (255, 255, 255))
+                palette = fontIDImage[fID].get_palette()
+                continue
+
             tileIDName[ int(str_splitBySpace[0]) ] = str_splitBySpace[1]
             tileID[ str_splitBySpace[1] ] = int(str_splitBySpace[0])
 
