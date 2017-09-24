@@ -21,8 +21,6 @@ NO_GIF_TILES = [20, 21, 23]
 tileIDName = {} # gives tile name (when the ID# is known)
 tileID = {} # gives tile ID (when the name is known)
 tileIDImage = {} # gives tile image (when the ID# is known)
-fontID = {} #
-fontIDImage = {} #
 
 # Initializing the sound mixer. Must come before pygame.init()
 pygame.mixer.pre_init(22050,16,2,512)
@@ -439,6 +437,61 @@ class pacman():
             pygame.draw.circle(debugLayer, RED, (int(self.targetX * SCREEN_MULTIPLIER), int(self.targetY * SCREEN_MULTIPLIER)), 3, 1)
             pygame.draw.circle(debugLayer, BLUE, (int(self.x * SCREEN_MULTIPLIER), int(self.y * SCREEN_MULTIPLIER)), 3, 1)
 
+class game():
+    def __init__(self):
+        self.state = 0
+        self.score = 1394
+        self.hiscore = 5000
+        self.fontColor = (255, 255, 255, 255)
+
+        self.player = None
+        self.ghosts = {}
+
+    def SetPlayer(self, player):
+        self.player = player
+
+    def SetGhost(self, index, g):
+        self.ghosts[index] = g
+
+    def Update(self):
+        self.player.Update()
+        for i in range(0, 4):
+            if i in self.ghosts:
+                self.ghosts[i].Update()
+
+
+    def Draw(self, surface):
+        self.drawTextAt(surface, 'ready!', 20, 11)
+        self.drawTextAt(surface, 'high score', 0, 9)
+        self.drawTextAt(surface, '1up', 0, 3)
+        self.drawScore(surface)
+
+
+    def drawScore(self, surface):
+        self.drawTextAt(surface, str(self.score), 1, 3, 2)
+        self.drawTextAt(surface, str(self.hiscore), 1, 13, 2)
+
+    def drawTextAt(self, surface, text, row, col, offset = 0):
+        text = text.lower()
+        for index in range(0, len(text)):
+            self.drawCharAt(surface, text[index], row, col + index, offset)
+
+    def drawCharAt(self, surface, char, row, col, offset):
+        index = ord(char)
+        if char == '!':
+            index = 36
+        elif index >= 97:
+            index = index - ord('a') + 10
+        elif index >= 48 and index <= 57:
+            index = index - ord('0')
+        else:
+            index = -1
+
+        if index > 36 or index < 0:
+            return
+        surface.blit(fontImage, (col * TILE_SIZE, (row * TILE_SIZE) + offset), (index * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE))
+
+
 class level():
     def __init__(self):
         self.lvlWidth = 0
@@ -454,6 +507,7 @@ class level():
         self.tilemap = {}
         self.colmap = {}
         self.pellets = 0
+
 
     def GetPelletCount(self):
         return self.pellets
@@ -591,6 +645,13 @@ class level():
                     blue = int( str_splitBySpace[4] )
                     self.pelletColor = (red, green, blue, 255)
 
+                elif firstWord == "fontcolor":
+                    red = int( str_splitBySpace[2] )
+                    green = int( str_splitBySpace[3] )
+                    blue = int( str_splitBySpace[4] )
+                    self.fontColor = (red, green, blue, 255)
+                    fontImage.set_palette_at(1, self.fontColor)
+
                 elif firstWord == "startleveldata":
                     isReadingLevelData = True
                     # print "Level data has begun"
@@ -653,18 +714,16 @@ class level():
                     rowNum += 1
         GetCrossRef()
 
-    def DrawLevel(self):
+    def DrawLevel(self, surface):
         if self.render:
-            background.fill(TRANSPARENT_BLACK)
+            surface.fill(TRANSPARENT_BLACK)
 
         for row in range(-1, screenTileSize[0] + 1, 1):
             for col in range(-1, screenTileSize[1] + 1, 1):
                 if self.render:
                     useTile = self.GetMapTile(row, col)
                     if not useTile == 0 and not useTile == tileID['door-h'] and not useTile == tileID['door-v']:
-                        background.blit(tileIDImage[useTile], (col * TILE_SIZE, row * TILE_SIZE))
-                    if row == 0 and col == 0:
-                        background.blit(fontIDImage['a'], (col * TILE_SIZE, row * TILE_SIZE))
+                        surface.blit(tileIDImage[useTile], (col * TILE_SIZE, row * TILE_SIZE))
 
                 if DEBUGDRAW:
                     debugrect = (col * TILE_SIZE* SCREEN_MULTIPLIER, row * TILE_SIZE * SCREEN_MULTIPLIER, TILE_SIZE * SCREEN_MULTIPLIER, TILE_SIZE * SCREEN_MULTIPLIER)
@@ -674,7 +733,6 @@ class level():
                         pygame.draw.rect(debugLayer, LEGAL, debugrect)
                     if col & TILE_FLAG_TUNNEL:
                         pygame.draw.rect(debugLayer, TUNNEL, debugrect)
-
         self.render = False
 
     def Restart(self):
@@ -747,7 +805,6 @@ def GetCrossRef ():
 
     lineNum = 0
     useLine = False
-    readFonts = False
 
     for i in f.readlines():
         # print " ========= Line " + str(lineNum) + " ============ "
@@ -766,24 +823,11 @@ def GetCrossRef ():
             firstWord = str_splitBySpace[1]
             if firstWord == "extension":
                 EXT = str_splitBySpace[2]
-            elif firstWord == "beginFonts":
-                readFonts = True
-            elif firstWord == "endFonts":
-                readFonts = False
         else:
             # print str(wordNum) + ". " + j
             useLine = True
 
         if useLine == True:
-            if readFonts:
-                fID = str_splitBySpace[0]
-                fontIDImage[fID] = pygame.image.load(os.path.join(SCRIPT_PATH,"res","tiles",str_splitBySpace[1] + EXT))
-                flags = fontIDImage[fID].get_flags()
-                palette = fontIDImage[fID].get_palette()
-                fontIDImage[fID].set_palette_at(1, (255, 255, 255))
-                palette = fontIDImage[fID].get_palette()
-                continue
-
             tileIDName[ int(str_splitBySpace[0]) ] = str_splitBySpace[1]
             tileID[ str_splitBySpace[1] ] = int(str_splitBySpace[0])
 
@@ -820,7 +864,7 @@ def CheckCollisions():
     row = player.nearestRow
     col = player.nearestCol
     # check player vs ghosts
-        # check ghost state (Normal vs Frightened)
+        # check ghost state (Normal vs Frightened)0-
 
     # check player vs pellet
     maptile = levelController.GetMapTile(row, col)
@@ -830,6 +874,8 @@ def CheckCollisions():
         return COLLISION_POWER_PELLET
     if fruit.active and fruit.DoesCollide(player.x, player.y):
         return COLLISION_FRUIT
+    if game.DoesCollideWithGhost(player):
+        return COLLISION_GHOST
 
     return COLLISION_NOTHING
 
@@ -842,15 +888,31 @@ screen = pygame.Surface(screenSize)
 background  = pygame.Surface(screenSize)
 debugLayer = pygame.Surface(windowSize, pygame.SRCALPHA, 32)
 
+fontImage = pygame.image.load(os.path.join(SCRIPT_PATH,"res","tiles","char_tiles.png"))
+
 player = pacman()
 pinky = ghost(PINK, randomAI())
 pinky.SnapToPosition(1 * TILE_SIZE, 4 * TILE_SIZE)
+inky = ghost(CYAN, randomAI())
+inky.SnapToPosition(26 * TILE_SIZE, 4 * TILE_SIZE)
+blinky = ghost(RED, randomAI())
+blinky.SnapToPosition(1 * TILE_SIZE, 32 * TILE_SIZE)
+clyde = ghost(ORANGE, randomAI())
+clyde.SnapToPosition(26 * TILE_SIZE, 32 * TILE_SIZE)
 
 fruit = bonus()
+fruit.SetActive(False)
 
 levelController = level()
 levelController.LoadLevel(99)
 levelController.Restart()
+
+gameController = game()
+gameController.SetPlayer(player)
+gameController.SetGhost(0, pinky)
+gameController.SetGhost(1, inky)
+gameController.SetGhost(2, blinky)
+gameController.SetGhost(3, clyde)
 
 # todo - move this into Game class when written
 lives = 3
@@ -860,9 +922,7 @@ while True:
     CheckInputs()
 
     if not paused:
-        player.Update()
-        pinky.Update()
-    # ghost update
+        gameController.Update()
 
     # check collisions
     collision = CheckCollisions()
@@ -887,11 +947,15 @@ while True:
     if DEBUGDRAW:
         debugLayer.fill(TRANSPARENT_BLACK)
 
-    levelController.DrawLevel()
+    levelController.DrawLevel(background)
+    gameController.Draw(background)
     screen.blit(background, (0,0))
     fruit.Draw()
     player.Draw()
     pinky.Draw()
+    inky.Draw()
+    blinky.Draw()
+    clyde.Draw()
 
     if button_pressed:
         debugrect = (debugCol * TILE_SIZE* SCREEN_MULTIPLIER, debugRow * TILE_SIZE * SCREEN_MULTIPLIER, TILE_SIZE * SCREEN_MULTIPLIER, TILE_SIZE * SCREEN_MULTIPLIER)
