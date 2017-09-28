@@ -1,4 +1,4 @@
-import pygame, sys, os, random
+import pygame, sys, os, random, math
 from pygame.locals import *
 
 # Path to the location of the game. Used for loading assets
@@ -82,6 +82,9 @@ DIR_LEFT    = "left"
 DIR_RIGHT   = "right"
 DIR_UP      = "up"
 DIR_DOWN    = "down"
+DEATH = "death"
+
+ANIMATION_FRAMES = { DIR_LEFT : 3, DIR_RIGHT : 3, DIR_UP : 3, DIR_DOWN : 3, DEATH : 12 }
 
 # Utility functions
 def getCell(v, spacing = 4):
@@ -90,9 +93,24 @@ def getCell(v, spacing = 4):
 def sign(v):
     return 1 if v > 0 else (-1 if v < 0 else 0)
 
+def oppositeDireciton(dir):
+    if dir == DIR_LEFT:
+        return DIR_RIGHT
+    elif dir == DIR_RIGHT:
+        return DIR_LEFT
+    elif dir == DIR_UP:
+        return DIR_DOWN
+    elif dir == DIR_DOWN:
+        return DIR_UP
+    return dir
+
 def cell(value):
     return value * TILE_SIZE
 
+def seconds(value):
+    return value * FRAME_TIME
+
+# main game classes
 class bonus():
 
     offset = 2
@@ -266,8 +284,9 @@ class ghost():
     def AtTarget(self):
         return self.x == self.targetX and self.y == self.targetY
 
-    def OnEnterTile(self, row, col):
-        self.brain.Think(self, row, col)
+   # def OnEnterTile(self, row, col):
+
+        #self.brain.Think(self, row, col)
 
     def Update(self):
         row = int((self.y + HALF_TILE_SIZE) / TILE_SIZE)
@@ -275,7 +294,7 @@ class ghost():
         if row != self.nearestRow or col != self.nearestCol:
             self.nearestCol = col
             self.nearestRow = row
-            self.OnEnterTile(row, col)
+            #self.OnEnterTile(row, col)
 
         #move towards target and select animation
         moved = False
@@ -311,6 +330,9 @@ class ghost():
         else:
             self.animFrame = 1
 
+        if self.AtTarget():
+            self.brain.Think(self, row, col)
+
         if self.animDelay == 4:
             self.animFrame = (self.animFrame + 1) % 2
             self.animDelay = 0
@@ -322,6 +344,8 @@ class pacman():
         self.targetX = 0
         self.targetY = 0
         self.speed = .7
+        self.alive = True
+        self.moveDelay = 0
 
         self.nearestRow = 0
         self.nearestCol = 0
@@ -333,16 +357,42 @@ class pacman():
         self.anim_right = {}
         self.anim_up = {}
         self.anim_down = {}
-        self.anim_current = None
-        self.animFrame = 1
-        self.animDelay = 0
-        self.direction = DIR_RIGHT
+        self.anim_dead = {}
 
         for i in range(1, 4, 1):
             self.anim_left[i-1] = pygame.image.load(os.path.join(SCRIPT_PATH,"res","sprite","pacman_left_" + str(i) + ".png")).convert_alpha()
             self.anim_right[i-1] = pygame.image.load(os.path.join(SCRIPT_PATH,"res","sprite","pacman_right_" + str(i) + ".png")).convert_alpha()
             self.anim_up[i-1] = pygame.image.load(os.path.join(SCRIPT_PATH,"res","sprite","pacman_up_" + str(i) + ".png")).convert_alpha()
             self.anim_down[i-1] = pygame.image.load(os.path.join(SCRIPT_PATH,"res","sprite","pacman_down_" + str(i) + ".png")).convert_alpha()
+
+        for i in range(1, ANIMATION_FRAMES[DEATH] + 1, 1):
+            self.anim_dead[i-1] = pygame.image.load(os.path.join(SCRIPT_PATH,"res","sprite","pacman_dead_"+str(i) +".png")).convert_alpha()
+
+
+        self.animFrame = 2
+        self.animDelay = 0
+        self.direction = DIR_RIGHT
+        self.anim_current = self.anim_right
+
+    def Eat(self, powerPellet = False):
+        if powerPellet:
+            self.moveDelay += 3
+        else:
+            self.moveDelay += 1
+
+    def Die(self):
+        self.alive = False
+        self.animFrame = 0
+        self.animDelay = 45
+        self.anim_current = self.anim_dead
+
+    def Respawn(self):
+        self.SnapToPosition(player.homeX, player.homeY)
+        self.alive = True
+        self.animFrame = 2
+        self.animDelay = 0
+        self.direction = DIR_RIGHT
+        self.anim_current = self.anim_right
 
     def SnapToPosition(self, x, y):
         self.x = x
@@ -364,10 +414,15 @@ class pacman():
             self.UpdateTarget(row + 1, col)
 
     def UpdateTarget(self, row, col):
-        if levelController.GetColTile(row, col) & TILE_FLAG_LEGAL:
+        flag = levelController.GetColTile(row, col)
+        if flag & TILE_FLAG_LEGAL:
             self.targetX = col * TILE_SIZE
             self.targetY = row * TILE_SIZE
         else:
+            if self.x > levelController.Right() and self.direction == DIR_RIGHT:
+                self.SnapToPosition(-1 * TILE_SIZE, self.y)
+            elif self.x < levelController.Left() and self.direction == DIR_LEFT:
+                self.SnapToPosition((levelController.colWidth + 1) * TILE_SIZE, self.y)
             if self.direction == DIR_RIGHT:
                 self.targetX = (col - 1) * TILE_SIZE
             elif self.direction == DIR_LEFT:
@@ -378,12 +433,19 @@ class pacman():
                 self.targetY = (row - 1) * TILE_SIZE
 
     def Update(self):
-        row = int((self.y + HALF_TILE_SIZE) / TILE_SIZE)
-        col = int((self.x + HALF_TILE_SIZE) / TILE_SIZE)
+        row = int(math.floor((self.y + HALF_TILE_SIZE) / TILE_SIZE))
+        col = int(math.floor((self.x + HALF_TILE_SIZE) / TILE_SIZE))
         if row != self.nearestRow or col != self.nearestCol:
             self.nearestCol = col
             self.nearestRow = row
             self.OnEnterTile(row, col)
+
+        if self.alive == False:
+            self.animDelay -= 1
+            if self.animDelay == 0:
+                self.animFrame = min((self.animFrame + 1), ANIMATION_FRAMES[DEATH] - 1)
+                self.animDelay = 8
+            return
 
         #move towards target and select animation
         moved = False
@@ -398,7 +460,11 @@ class pacman():
         else:
             self.anim_current = self.anim_right
             self.animDelay = 0
-            self.animFrame = 2
+            self.animFrame = ANIMATION_FRAMES[self.direction] - 1
+
+        if self.moveDelay > 0:
+            self.moveDelay -= 1
+            return
 
         if self.x < self.targetX:
             self.x = min(self.x + self.speed, self.targetX)
@@ -417,10 +483,10 @@ class pacman():
         if moved:
             self.animDelay += 1
         else:
-            self.animFrame = 2
+            self.animFrame = ANIMATION_FRAMES[self.direction] - 1
 
         if self.animDelay == 4:
-            self.animFrame = (self.animFrame + 1) % 3
+            self.animFrame = (self.animFrame + 1) % ANIMATION_FRAMES[self.direction]
             self.animDelay = 0
 
     def ScreenPos(self):
@@ -440,7 +506,9 @@ class pacman():
 class game():
     def __init__(self):
         self.state = 0
-        self.score = 1394
+        self.timer = 0
+        self.lives = 3
+        self.score = 0
         self.hiscore = 5000
         self.fontColor = (255, 255, 255, 255)
 
@@ -454,18 +522,79 @@ class game():
         self.ghosts[index] = g
 
     def Update(self):
+        if self.state == 0:
+            self.introUpdate()
+        elif self.state == 1:
+            self.gameUpdate()
+        elif self.state == 2:
+            self.deathUpdate()
+
+    def introUpdate(self):
+        self.timer += 1
+        if self.timer >= seconds(2):
+            self.state = 1
+
+    def gameUpdate(self):
         self.player.Update()
+        if self.player.alive:
+            for i in range(0, 4):
+                if i in self.ghosts:
+                    self.ghosts[i].Update()
+
+        # check collisions
+        row = self.player.nearestRow
+        col = self.player.nearestCol
+        collision = CheckCollisions()
+        if collision == COLLISION_GHOST:
+            if self.player.alive and self.lives > 0:
+                # enter death state
+                self.state = 2
+                self.lives -= 1
+                self.player.Die()
+                levelController.render = True
+                print("Pacman is dead")
+            elif self.player.alive:
+                # gameover
+                print("game over")
+        elif collision == COLLISION_PELLET or collision == COLLISION_POWER_PELLET:
+            powerPellet = (collision == COLLISION_POWER_PELLET)
+            levelController.EatPellet(row, col, powerPellet)
+            self.player.Eat(powerPellet)
+            self.score += 10 if collision == COLLISION_PELLET else 50
+            if levelController.GetPelletCount() == 0:
+                # level is over, change to victory state
+                print("You beat the level")
+        elif collision == COLLISION_FRUIT:
+            levelController.EatBonus(fruit)
+            print("you ate the master fruit")
+
+    def deathUpdate(self):
+        self.player.Update()
+        self.timer += 1
+        if self.timer >= seconds(6):
+            self.state = 0
+            self.timer = 0
+            levelController.Restart()
+
+    def DoesCollideWithGhost(self, p):
+        row = p.nearestRow
+        col = p.nearestCol
         for i in range(0, 4):
             if i in self.ghosts:
-                self.ghosts[i].Update()
-
+                g = self.ghosts[i]
+                if g.nearestRow == row and g.nearestCol == col:
+                    return True
+        return False
 
     def Draw(self, surface):
-        self.drawTextAt(surface, 'ready!', 20, 11)
+        if self.state == 0:
+            self.drawTextAt(surface, 'ready!', 20, 11)
         self.drawTextAt(surface, 'high score', 0, 9)
         self.drawTextAt(surface, '1up', 0, 3)
         self.drawScore(surface)
-
+        start = 2 * TILE_SIZE
+        for i in range(0, self.lives):
+            surface.blit(lifeImage, (start + (2 * i) * TILE_SIZE, 34 * TILE_SIZE))
 
     def drawScore(self, surface):
         self.drawTextAt(surface, str(self.score), 1, 3, 2)
@@ -542,11 +671,21 @@ class level():
         value = self.colmap[index]
         self.colmap[index] = (value & ~flag)
 
+    def Left(self):
+        return 0
+
+    def Right(self):
+        return (self.colWidth - 1)* TILE_SIZE
+
     def GetColTile(self, row, col):
         if row >= 0 and row < self.lvlHeight and col >= 0 and col < self.lvlWidth:
             index = self.ColIndex(row, col)
             return self.colmap[index]
         else:
+            if col == -1:
+                return TILE_FLAG_LEGAL
+            if col == self.colWidth:
+                return TILE_FLAG_LEGAL
             return 0
 
     def HasColFlag(self, row, col, flag):
@@ -736,9 +875,7 @@ class level():
         self.render = False
 
     def Restart(self):
-        player.SnapToPosition(player.homeX, player.homeY)
-        player.direction = DIR_RIGHT
-        # todo - reset pellets if not a straight reload
+        player.Respawn()
 
 def CheckIfCloseButton(events):
     for event in events:
@@ -874,7 +1011,7 @@ def CheckCollisions():
         return COLLISION_POWER_PELLET
     if fruit.active and fruit.DoesCollide(player.x, player.y):
         return COLLISION_FRUIT
-    if game.DoesCollideWithGhost(player):
+    if gameController.DoesCollideWithGhost(player):
         return COLLISION_GHOST
 
     return COLLISION_NOTHING
@@ -889,6 +1026,7 @@ background  = pygame.Surface(screenSize)
 debugLayer = pygame.Surface(windowSize, pygame.SRCALPHA, 32)
 
 fontImage = pygame.image.load(os.path.join(SCRIPT_PATH,"res","tiles","char_tiles.png"))
+lifeImage = pygame.image.load(os.path.join(SCRIPT_PATH,"res","sprite","pacman_life.png")).convert_alpha()
 
 player = pacman()
 pinky = ghost(PINK, randomAI())
@@ -914,8 +1052,6 @@ gameController.SetGhost(1, inky)
 gameController.SetGhost(2, blinky)
 gameController.SetGhost(3, clyde)
 
-# todo - move this into Game class when written
-lives = 3
 paused = False
 while True:
     CheckIfCloseButton( pygame.event.get() )
@@ -923,25 +1059,6 @@ while True:
 
     if not paused:
         gameController.Update()
-
-    # check collisions
-    collision = CheckCollisions()
-    if collision == COLLISION_GHOST:
-        if lives > 0:
-            # enter death state
-            lives -= 1
-            print("Pacman is dead")
-        else:
-            # gameover
-            print("game over")
-    elif collision == COLLISION_PELLET or collision == COLLISION_POWER_PELLET:
-        levelController.EatPellet(player.nearestRow, player.nearestCol, (collision == COLLISION_POWER_PELLET))
-        if levelController.GetPelletCount() == 0:
-            # level is over, change to victory state
-            print("You beat the level")
-    elif collision == COLLISION_FRUIT:
-        levelController.EatBonus(fruit)
-        print("you ate the master fruit")
 
     screen.fill(TRANSPARENT_BLACK)
     if DEBUGDRAW:
@@ -951,11 +1068,12 @@ while True:
     gameController.Draw(background)
     screen.blit(background, (0,0))
     fruit.Draw()
+    if player.alive:
+        pinky.Draw()
+        inky.Draw()
+        blinky.Draw()
+        clyde.Draw()
     player.Draw()
-    pinky.Draw()
-    inky.Draw()
-    blinky.Draw()
-    clyde.Draw()
 
     if button_pressed:
         debugrect = (debugCol * TILE_SIZE* SCREEN_MULTIPLIER, debugRow * TILE_SIZE * SCREEN_MULTIPLIER, TILE_SIZE * SCREEN_MULTIPLIER, TILE_SIZE * SCREEN_MULTIPLIER)
